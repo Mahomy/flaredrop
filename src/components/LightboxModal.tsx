@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
-import { X, Copy, ExternalLink } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { X, Copy, ExternalLink, Download, Check } from 'lucide-react';
 import { UploadedImage } from '../types';
 import { formatBytes } from '../services/storage';
+import { downloadDirectImage } from '../services/cloudflare';
 
 interface LightboxModalProps {
   image: UploadedImage | null;
@@ -14,6 +15,8 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   onClose,
   onCopyUrl
 }) => {
+  const [downloading, setDownloading] = useState(false);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -23,6 +26,12 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
   }, [onClose]);
 
   if (!image) return null;
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    await downloadDirectImage(image.url, image.name);
+    setTimeout(() => setDownloading(false), 1000);
+  };
 
   return (
     <div
@@ -73,13 +82,24 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
             >
               <Copy className="w-3.5 h-3.5" /> Copy Link
             </button>
+            <button
+              onClick={handleDownload}
+              className={`px-3 py-2 rounded-xl font-semibold text-xs transition flex items-center gap-1.5 ${
+                downloading
+                  ? 'bg-emerald-500 text-slate-950'
+                  : 'bg-slate-800 hover:bg-slate-700 text-white'
+              }`}
+              title="Download direct image"
+            >
+              {downloading ? <Check className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
+              <span>{downloading ? 'Downloaded!' : 'Download'}</span>
+            </button>
             <a
               href={image.url}
-              download={image.name}
               target="_blank"
               rel="noopener noreferrer"
               className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs transition"
-              title="Open full size"
+              title="Open raw image directly"
             >
               <ExternalLink className="w-4 h-4" />
             </a>

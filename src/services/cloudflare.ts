@@ -29,8 +29,8 @@ export interface UploadResult {
 }
 
 /**
- * Uploads an image and returns a real, public HTTPS URL.
- * Never returns raw base64 data URIs.
+ * Uploads an image to 100% Ad-Free Direct CDN.
+ * Returns direct raw image link (https://i.imgur.com/xxx.png or Cloudflare).
  */
 export async function uploadImage(file: File, config: CloudflareConfig): Promise<UploadResult> {
   const formData = new FormData();
@@ -64,33 +64,56 @@ export async function uploadImage(file: File, config: CloudflareConfig): Promise
       }
     }
   } catch (err) {
-    console.warn('Pages function /api/upload unavailable, trying direct CDN...');
+    console.warn('Pages function /api/upload unavailable, trying direct Imgur CDN...');
   }
 
-  // 2. Direct browser upload to Tmpfiles CDN (has Access-Control-Allow-Origin: *)
+  // 2. Direct browser upload to Imgur (100% ad-free, direct i.imgur.com raw image URL)
   try {
-    const directForm = new FormData();
-    directForm.append('file', file);
+    const imgurForm = new FormData();
+    imgurForm.append('image', file);
 
-    const tmpRes = await fetch('https://tmpfiles.org/api/v1/upload', {
+    const imgurRes = await fetch('https://api.imgur.com/3/image', {
       method: 'POST',
-      body: directForm
+      headers: {
+        'Authorization': 'Client-ID 546c25a59c58ad7'
+      },
+      body: imgurForm
     });
 
-    if (tmpRes.ok) {
-      const json: any = await tmpRes.json();
-      const raw = json.data?.url;
-      if (raw) {
-        const directUrl = raw.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+    if (imgurRes.ok) {
+      const imgurJson: any = await imgurRes.json();
+      if (imgurJson.success && imgurJson.data?.link) {
         return {
-          url: directUrl,
+          url: imgurJson.data.link,
+          id: imgurJson.data.id,
           provider: 'cdn'
         };
       }
     }
   } catch (err) {
-    console.error('Direct CDN upload failed:', err);
+    console.error('Direct Imgur upload failed:', err);
   }
 
-  throw new Error('Could not upload image. Please check your internet connection or Cloudflare settings.');
+  throw new Error('Could not upload image. Please check your internet connection.');
+}
+
+/**
+ * Downloads an image directly to the user's computer with zero ads or third-party pages.
+ */
+export async function downloadDirectImage(url: string, filename: string): Promise<void> {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename || 'downloaded-image.png';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(blobUrl);
+  } catch (err) {
+    // If CORS prevents direct blob fetch, open image directly in a clean tab
+    window.open(url, '_blank');
+  }
 }

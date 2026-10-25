@@ -17,23 +17,23 @@ export async function onRequestPost(context: any) {
       });
     }
 
-    // Check if Cloudflare credentials provided in headers
+    // Check if user provided Cloudflare credentials in request
     const cfAccountId = request.headers.get('X-CF-Account-Id') || formData.get('cf_account_id');
     const cfApiToken = request.headers.get('X-CF-Api-Token') || formData.get('cf_api_token');
     const cfAccountHash = request.headers.get('X-CF-Account-Hash') || formData.get('cf_account_hash');
 
-    // 1. Try Cloudflare Images if credentials provided
+    // 1. If Cloudflare credentials configured, try Cloudflare Images first
     if (cfAccountId && cfApiToken) {
       try {
-        const cfFormData = new FormData();
-        cfFormData.append('file', file);
+        const cfForm = new FormData();
+        cfForm.append('file', file);
 
         const cfRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/images/v1`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${cfApiToken}`
           },
-          body: cfFormData
+          body: cfForm
         });
 
         if (cfRes.ok) {
@@ -55,11 +55,41 @@ export async function onRequestPost(context: any) {
           }
         }
       } catch (cfErr) {
-        // Fall through to public CDN if CF Images failed or not subscribed
+        // Fall through to ad-free CDN
       }
     }
 
-    // 2. Global Public Image CDN (Catbox - Permanent, short, direct https URLs)
+    // 2. Primary 100% Ad-Free CDN: Imgur Direct Image CDN (returns direct i.imgur.com raw image URL)
+    try {
+      const imgurForm = new FormData();
+      imgurForm.append('image', file);
+
+      const imgurRes = await fetch('https://api.imgur.com/3/image', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Client-ID 546c25a59c58ad7'
+        },
+        body: imgurForm
+      });
+
+      if (imgurRes.ok) {
+        const imgurJson: any = await imgurRes.json();
+        if (imgurJson.success && imgurJson.data?.link) {
+          return new Response(JSON.stringify({
+            success: true,
+            url: imgurJson.data.link,
+            provider: 'cdn',
+            id: imgurJson.data.id
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      }
+    } catch (imgurErr) {
+      // Fall through to Catbox
+    }
+
+    // 3. Secondary 100% Ad-Free CDN: Catbox (returns direct files.catbox.moe raw image URL)
     try {
       const catboxForm = new FormData();
       catboxForm.append('reqtype', 'fileupload');
@@ -67,13 +97,15 @@ export async function onRequestPost(context: any) {
 
       const catboxRes = await fetch('https://catbox.moe/user/api.php', {
         method: 'POST',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+        },
         body: catboxForm
       });
 
       if (catboxRes.ok) {
         const url = (await catboxRes.text()).trim();
         if (url.startsWith('http://') || url.startsWith('https://')) {
-          // Ensure HTTPS
           const httpsUrl = url.replace('http://', 'https://');
           return new Response(JSON.stringify({
             success: true,
@@ -85,40 +117,12 @@ export async function onRequestPost(context: any) {
         }
       }
     } catch (catboxErr) {
-      // Fall through to secondary CDN
-    }
-
-    // 3. Secondary CDN (Tmpfiles)
-    try {
-      const tmpForm = new FormData();
-      tmpForm.append('file', file);
-
-      const tmpRes = await fetch('https://tmpfiles.org/api/v1/upload', {
-        method: 'POST',
-        body: tmpForm
-      });
-
-      if (tmpRes.ok) {
-        const tmpJson: any = await tmpRes.json();
-        const rawUrl = tmpJson.data?.url;
-        if (rawUrl) {
-          const directUrl = rawUrl.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
-          return new Response(JSON.stringify({
-            success: true,
-            url: directUrl,
-            provider: 'cdn'
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-      }
-    } catch (tmpErr) {
       // Fall through
     }
 
     return new Response(JSON.stringify({
       success: false,
-      error: 'Failed to upload image to CDN. Please check your network connection.'
+      error: 'Upload failed. Please check network connection.'
     }), {
       status: 502,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
