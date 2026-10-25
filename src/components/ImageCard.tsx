@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Check, ExternalLink, Trash2, Eye, Cloud } from 'lucide-react';
+import { Copy, Check, ExternalLink, Trash2, Eye, Cloud, Globe } from 'lucide-react';
 import { UploadedImage } from '../types';
 import { formatBytes } from '../services/storage';
 
@@ -42,14 +42,18 @@ export const ImageCard: React.FC<ImageCardProps> = ({
           loading="lazy"
         />
 
-        {/* Format Badge */}
+        {/* Badges */}
         <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
           <span className="bg-slate-900/85 backdrop-blur-md border border-slate-700/60 text-[10px] font-bold text-cyan-300 px-2 py-0.5 rounded-md">
             {extension}
           </span>
-          {image.source === 'cloudflare' && (
+          {image.source === 'cloudflare' ? (
             <span className="bg-amber-950/85 backdrop-blur-md border border-amber-800/60 text-[10px] font-bold text-amber-300 px-1.5 py-0.5 rounded-md flex items-center gap-1">
               <Cloud className="w-2.5 h-2.5" /> CF CDN
+            </span>
+          ) : (
+            <span className="bg-cyan-950/85 backdrop-blur-md border border-cyan-800/60 text-[10px] font-bold text-cyan-300 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+              <Globe className="w-2.5 h-2.5" /> Public CDN
             </span>
           )}
         </div>
@@ -115,7 +119,7 @@ export const ImageCard: React.FC<ImageCardProps> = ({
               ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300'
               : 'bg-slate-900/80 border-slate-800 hover:border-cyan-500/50 hover:bg-slate-900 text-slate-300'
           }`}
-          title="Click to copy full image URL"
+          title="Click to copy direct HTTPS image URL"
         >
           <span className="font-mono text-xs truncate flex-1 select-all">
             {image.url}

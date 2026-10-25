@@ -22,49 +22,75 @@ export async function getImageDimensions(dataUrl: string): Promise<{ width: numb
   });
 }
 
-export async function uploadToCloudflareImages(file: File, config: CloudflareConfig): Promise<{ url: string; id: string }> {
-  if (!config.accountId || !config.apiToken) {
-    throw new Error('Cloudflare Account ID and API Token are required.');
-  }
+export interface UploadResult {
+  url: string;
+  id?: string;
+  provider: 'cloudflare' | 'cdn';
+}
 
+/**
+ * Uploads an image and returns a real, public HTTPS URL.
+ * Never returns raw base64 data URIs.
+ */
+export async function uploadImage(file: File, config: CloudflareConfig): Promise<UploadResult> {
   const formData = new FormData();
   formData.append('file', file);
 
-  const endpoint = `https://api.cloudflare.com/client/v4/accounts/${config.accountId.trim()}/images/v1`;
-  
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${config.apiToken.trim()}`
-    },
-    body: formData
-  });
+  const headers: Record<string, string> = {};
+  if (config.enabled && config.accountId && config.apiToken) {
+    headers['X-CF-Account-Id'] = config.accountId.trim();
+    headers['X-CF-Api-Token'] = config.apiToken.trim();
+    if (config.accountHash) {
+      headers['X-CF-Account-Hash'] = config.accountHash.trim();
+    }
+  }
 
-  const text = await response.text();
-  let data: any;
+  // 1. Try serverless Cloudflare Pages function (/api/upload)
   try {
-    data = JSON.parse(text);
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      headers,
+      body: formData
+    });
+
+    if (response.ok) {
+      const data: any = await response.json();
+      if (data.success && data.url) {
+        return {
+          url: data.url,
+          id: data.id,
+          provider: data.provider || 'cdn'
+        };
+      }
+    }
   } catch (err) {
-    throw new Error(`Cloudflare returned non-JSON response (HTTP ${response.status}): ${text.slice(0, 150)}`);
+    console.warn('Pages function /api/upload unavailable, trying direct CDN...');
   }
 
-  if (!response.ok || !data.success) {
-    const msg = data.errors?.[0]?.message || `Upload failed with HTTP ${response.status}`;
-    throw new Error(msg);
+  // 2. Direct browser upload to Tmpfiles CDN (has Access-Control-Allow-Origin: *)
+  try {
+    const directForm = new FormData();
+    directForm.append('file', file);
+
+    const tmpRes = await fetch('https://tmpfiles.org/api/v1/upload', {
+      method: 'POST',
+      body: directForm
+    });
+
+    if (tmpRes.ok) {
+      const json: any = await tmpRes.json();
+      const raw = json.data?.url;
+      if (raw) {
+        const directUrl = raw.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+        return {
+          url: directUrl,
+          provider: 'cdn'
+        };
+      }
+    }
+  } catch (err) {
+    console.error('Direct CDN upload failed:', err);
   }
 
-  const result = data.result;
-  let finalUrl = '';
-  if (result.variants && result.variants.length > 0) {
-    finalUrl = result.variants[0];
-  } else if (config.accountHash) {
-    finalUrl = `https://imagedelivery.net/${config.accountHash.trim()}/${result.id}/public`;
-  } else {
-    finalUrl = `https://imagedelivery.net/${config.accountId.trim()}/${result.id}/public`;
-  }
-
-  return {
-    url: finalUrl,
-    id: result.id
-  };
+  throw new Error('Could not upload image. Please check your internet connection or Cloudflare settings.');
 }

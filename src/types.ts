@@ -8,7 +8,7 @@ export interface UploadedImage {
   uploadedAt: string;
   width?: number;
   height?: number;
-  source: 'cloudflare' | 'local';
+  source?: 'cloudflare' | 'local' | 'cdn';
   cloudflareId?: string;
 }
 
