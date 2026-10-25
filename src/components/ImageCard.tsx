@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Check, ExternalLink, Download, Trash2, Eye, Cloud, Globe } from 'lucide-react';
+import { Copy, Check, ExternalLink, Download, Trash2, Eye, Cloud } from 'lucide-react';
 import { UploadedImage } from '../types';
 import { formatBytes } from '../services/storage';
 import { downloadDirectImage } from '../services/cloudflare';
@@ -37,7 +37,7 @@ export const ImageCard: React.FC<ImageCardProps> = ({
   const extension = image.name.split('.').pop()?.toUpperCase() || 'IMG';
 
   return (
-    <div className="group relative bg-[#0c121e] border border-slate-800/80 hover:border-cyan-500/40 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/5 flex flex-col">
+    <div className="group relative bg-[#0c121e] border border-slate-800/80 hover:border-amber-500/40 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/5 flex flex-col">
       
       {/* Image Preview Container */}
       <div
@@ -53,25 +53,19 @@ export const ImageCard: React.FC<ImageCardProps> = ({
 
         {/* Badges */}
         <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-          <span className="bg-slate-900/85 backdrop-blur-md border border-slate-700/60 text-[10px] font-bold text-cyan-300 px-2 py-0.5 rounded-md">
+          <span className="bg-slate-900/85 backdrop-blur-md border border-slate-700/60 text-[10px] font-bold text-slate-300 px-2 py-0.5 rounded-md">
             {extension}
           </span>
-          {image.source === 'cloudflare' ? (
-            <span className="bg-amber-950/85 backdrop-blur-md border border-amber-800/60 text-[10px] font-bold text-amber-300 px-1.5 py-0.5 rounded-md flex items-center gap-1">
-              <Cloud className="w-2.5 h-2.5" /> CF CDN
-            </span>
-          ) : (
-            <span className="bg-cyan-950/85 backdrop-blur-md border border-cyan-800/60 text-[10px] font-bold text-cyan-300 px-1.5 py-0.5 rounded-md flex items-center gap-1">
-              <Globe className="w-2.5 h-2.5" /> Direct CDN
-            </span>
-          )}
+          <span className="bg-amber-950/85 backdrop-blur-md border border-amber-800/60 text-[10px] font-bold text-amber-300 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+            <Cloud className="w-2.5 h-2.5" /> Cloudflare R2
+          </span>
         </div>
 
         {/* Hover Action Overlay */}
         <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
           <button
             onClick={(e) => { e.stopPropagation(); onPreview(image); }}
-            className="p-2 bg-slate-800/90 hover:bg-cyan-500 hover:text-slate-950 text-white rounded-xl transition shadow-lg"
+            className="p-2 bg-slate-800/90 hover:bg-amber-500 hover:text-slate-950 text-white rounded-xl transition shadow-lg"
             title="Preview Fullscreen"
           >
             <Eye className="w-4 h-4" />
@@ -81,7 +75,7 @@ export const ImageCard: React.FC<ImageCardProps> = ({
             className={`p-2 rounded-xl transition shadow-lg ${
               downloading
                 ? 'bg-emerald-500 text-slate-950'
-                : 'bg-slate-800/90 hover:bg-cyan-500 hover:text-slate-950 text-white'
+                : 'bg-slate-800/90 hover:bg-amber-500 hover:text-slate-950 text-white'
             }`}
             title="Download Directly (Zero Ads)"
           >
@@ -92,15 +86,15 @@ export const ImageCard: React.FC<ImageCardProps> = ({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="p-2 bg-slate-800/90 hover:bg-cyan-500 hover:text-slate-950 text-white rounded-xl transition shadow-lg"
-            title="Open Raw Image"
+            className="p-2 bg-slate-800/90 hover:bg-amber-500 hover:text-slate-950 text-white rounded-xl transition shadow-lg"
+            title="Open Raw Image in New Tab"
           >
             <ExternalLink className="w-4 h-4" />
           </a>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(image.id); }}
             className="p-2 bg-slate-800/90 hover:bg-red-500 text-white rounded-xl transition shadow-lg"
-            title="Delete Image"
+            title="Delete Image from Cloudflare R2"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -137,7 +131,7 @@ export const ImageCard: React.FC<ImageCardProps> = ({
           className={`group/copy relative flex items-center justify-between gap-2 p-2 rounded-xl border transition-all cursor-pointer ${
             copied
               ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300'
-              : 'bg-slate-900/80 border-slate-800 hover:border-cyan-500/50 hover:bg-slate-900 text-slate-300'
+              : 'bg-slate-900/80 border-slate-800 hover:border-amber-500/50 hover:bg-slate-900 text-slate-300'
           }`}
           title="Click to copy raw direct image link (Zero Ads)"
         >
@@ -149,7 +143,7 @@ export const ImageCard: React.FC<ImageCardProps> = ({
             className={`p-1.5 rounded-lg transition shrink-0 ${
               copied
                 ? 'bg-emerald-500/20 text-emerald-400'
-                : 'bg-slate-800 group-hover/copy:bg-cyan-500 group-hover/copy:text-slate-950 text-slate-400'
+                : 'bg-slate-800 group-hover/copy:bg-amber-500 group-hover/copy:text-slate-950 text-slate-400'
             }`}
           >
             {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}

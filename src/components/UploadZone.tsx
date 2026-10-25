@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Upload, Sparkles } from 'lucide-react';
 
 interface UploadZoneProps {
   onFilesSelected: (files: FileList | File[]) => void;
@@ -49,7 +49,7 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
         onClick={() => !isUploading && fileInputRef.current?.click()}
         className={`relative overflow-hidden rounded-2xl border-2 border-dashed p-8 md:p-10 text-center transition-all cursor-pointer ${
           isDragOver
-            ? 'border-cyan-400 bg-cyan-950/20 scale-[0.99] shadow-xl shadow-cyan-500/10'
+            ? 'border-amber-400 bg-amber-950/20 scale-[0.99] shadow-xl shadow-amber-500/10'
             : 'border-slate-800 hover:border-slate-700 bg-slate-900/30 hover:bg-slate-900/50'
         }`}
       >
@@ -65,18 +65,18 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
 
         {isUploading && uploadProgress ? (
           <div className="max-w-md mx-auto py-4">
-            <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center animate-spin">
-              <Upload className="w-6 h-6 text-cyan-400" />
+            <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center animate-spin">
+              <Upload className="w-6 h-6 text-amber-400" />
             </div>
             <p className="text-sm font-semibold text-white mb-1">
-              Uploading {uploadProgress.current} of {uploadProgress.total}...
+              Uploading {uploadProgress.current} of {uploadProgress.total} to Cloudflare R2...
             </p>
             <p className="text-xs text-slate-400 truncate mb-3">
               {uploadProgress.filename}
             </p>
             <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
               <div
-                className="bg-gradient-to-r from-cyan-500 to-sky-400 h-full transition-all duration-300"
+                className="bg-gradient-to-r from-amber-500 to-orange-400 h-full transition-all duration-300"
                 style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
               ></div>
             </div>
@@ -84,16 +84,16 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
         ) : (
           <div className="flex flex-col items-center justify-center">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-700/60 flex items-center justify-center mb-4 shadow-inner group-hover:scale-105 transition">
-              <Upload className="w-6 h-6 text-cyan-400" />
+              <Upload className="w-6 h-6 text-amber-400" />
             </div>
 
             <h3 className="text-base sm:text-lg font-semibold text-white mb-1 flex items-center gap-2">
-              Drop your images here, or <span className="text-cyan-400 underline underline-offset-4">browse</span>
+              Drop images anywhere here, or <span className="text-amber-400 underline underline-offset-4">browse</span>
               <Sparkles className="w-4 h-4 text-amber-400" />
             </h3>
 
             <p className="text-xs sm:text-sm text-slate-400 max-w-sm mb-4">
-              Upload single or multiple images. Get instant direct CDN URLs in a card layout ready to copy.
+              Direct upload to your Cloudflare R2 bucket. Instant public HTTPS URLs in cards ready to copy (100% Ad-Free).
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-2 text-[11px] text-slate-400">

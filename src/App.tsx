@@ -13,16 +13,16 @@ import {
   getStoredCloudflareConfig,
   saveStoredCloudflareConfig
 } from './services/storage';
-import { fileToDataUrl, getImageDimensions, uploadImage } from './services/cloudflare';
-import { Images, AlertCircle } from 'lucide-react';
+import { fileToDataUrl, getImageDimensions, uploadImage, fetchRemoteImages, deleteRemoteImage } from './services/cloudflare';
+import { Images, AlertCircle, RefreshCw } from 'lucide-react';
 
 export default function App() {
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [cfConfig, setCfConfig] = useState<CloudflareConfig>({
-    accountId: '',
+    accountId: 'dc9867f8a1cf9c3548137121a3c613c2',
     apiToken: '',
     accountHash: '',
-    enabled: false
+    enabled: true
   });
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -30,6 +30,7 @@ export default function App() {
   const [sortBy, setSortBy] = useState('newest');
 
   const [isUploading, setIsUploading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{
     current: number;
     total: number;
@@ -40,9 +41,44 @@ export default function App() {
   const [previewImage, setPreviewImage] = useState<UploadedImage | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
+  // Synchronize remote images from Cloudflare R2 bucket
+  const syncWithCloudflare = async () => {
+    setIsSyncing(true);
+    try {
+      const remoteFiles = await fetchRemoteImages();
+      if (remoteFiles.length > 0) {
+        setImages((prev) => {
+          const map = new Map<string, UploadedImage>();
+          // Remote R2 files take precedence
+          remoteFiles.forEach((f) => map.set(f.id, f));
+          // Keep non-duplicate local items if any
+          prev.forEach((img) => {
+            if (!map.has(img.id) && !map.has(`r2_${img.name}`)) {
+              map.set(img.id, img);
+            }
+          });
+          const combined = Array.from(map.values());
+          saveStoredImages(combined);
+          return combined;
+        });
+      }
+    } catch (err) {
+      console.warn('Sync failed:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   useEffect(() => {
-    setImages(getStoredImages());
+    // Load local cache immediately
+    const local = getStoredImages();
+    if (local.length > 0) {
+      setImages(local);
+    }
     setCfConfig(getStoredCloudflareConfig());
+
+    // Sync with Cloudflare R2
+    syncWithCloudflare();
   }, []);
 
   const addToast = (text: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -66,7 +102,7 @@ export default function App() {
   const handleClearAll = () => {
     setImages([]);
     saveStoredImages([]);
-    addToast('All images removed from vault', 'info');
+    addToast('All images removed from local view', 'info');
   };
 
   const handleCleanBase64 = () => {
@@ -104,20 +140,20 @@ export default function App() {
         const localDataUrl = await fileToDataUrl(file);
         const dims = await getImageDimensions(localDataUrl);
 
-        // Upload to real cloud CDN / Cloudflare
+        // Upload straight to Cloudflare R2 bucket
         const uploadResult = await uploadImage(file, cfConfig);
 
         const newItem: UploadedImage = {
-          id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-          name: file.name,
-          size: file.size,
-          type: file.type,
+          id: `r2_${uploadResult.id}`,
+          name: uploadResult.name,
+          size: uploadResult.size,
+          type: uploadResult.type,
           url: uploadResult.url,
           thumbnailUrl: uploadResult.url,
           uploadedAt: new Date().toISOString(),
           width: dims.width,
           height: dims.height,
-          source: uploadResult.provider,
+          source: 'cloudflare',
           cloudflareId: uploadResult.id
         };
 
@@ -131,7 +167,7 @@ export default function App() {
       const updated = [...newItems, ...images];
       setImages(updated);
       saveStoredImages(updated);
-      addToast(`Uploaded ${newItems.length} ${newItems.length === 1 ? 'image' : 'images'}! Direct HTTPS links ready.`, 'success');
+      addToast(`Uploaded ${newItems.length} ${newItems.length === 1 ? 'image' : 'images'} straight to Cloudflare R2! 100% Ad-Free.`, 'success');
     }
 
     setIsUploading(false);
@@ -140,14 +176,20 @@ export default function App() {
 
   const handleCopyUrl = (url: string) => {
     navigator.clipboard.writeText(url);
-    addToast('Direct image URL copied to clipboard!', 'success');
+    addToast('Cloudflare direct URL copied to clipboard!', 'success');
   };
 
-  const handleDeleteImage = (id: string) => {
+  const handleDeleteImage = async (id: string) => {
+    const target = images.find((img) => img.id === id);
     const updated = images.filter((img) => img.id !== id);
     setImages(updated);
     saveStoredImages(updated);
-    addToast('Image deleted from vault', 'info');
+
+    if (target?.cloudflareId || id.startsWith('r2_')) {
+      const deleteKey = target?.cloudflareId || id.replace(/^r2_/, '');
+      await deleteRemoteImage(deleteKey);
+    }
+    addToast('Image deleted from Cloudflare R2 vault', 'info');
   };
 
   const filteredImages = useMemo(() => {
@@ -200,7 +242,7 @@ export default function App() {
       <Header
         totalCount={images.length}
         totalSize={totalSize}
-        isCloudflareActive={Boolean(cfConfig.enabled && cfConfig.accountId && cfConfig.apiToken)}
+        isCloudflareActive={true}
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
@@ -211,7 +253,7 @@ export default function App() {
           <div className="bg-amber-950/40 border border-amber-800/60 rounded-xl px-4 py-3 flex items-center justify-between gap-3 text-xs text-amber-200">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>You have older cards with base64 data URLs. Clean them to keep only real public HTTPS URLs.</span>
+              <span>You have older cards with base64 data URLs. Clean them to keep only real Cloudflare R2 links.</span>
             </div>
             <button
               onClick={handleCleanBase64}
@@ -230,28 +272,41 @@ export default function App() {
         />
 
         {/* Gallery Controls & Search */}
-        {images.length > 0 && (
-          <SearchBar
-            query={searchQuery}
-            onQueryChange={setSearchQuery}
-            selectedFormat={selectedFormat}
-            onFormatChange={setSelectedFormat}
-            sortBy={sortBy}
-            onSortChange={setSortBy}
-          />
-        )}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1">
+            {images.length > 0 && (
+              <SearchBar
+                query={searchQuery}
+                onQueryChange={setSearchQuery}
+                selectedFormat={selectedFormat}
+                onFormatChange={setSelectedFormat}
+                sortBy={sortBy}
+                onSortChange={setSortBy}
+              />
+            )}
+          </div>
+          <button
+            onClick={syncWithCloudflare}
+            disabled={isSyncing}
+            className="p-2.5 bg-slate-900 border border-slate-800 hover:border-amber-500/40 rounded-xl text-slate-400 hover:text-white transition flex items-center gap-1.5 text-xs shrink-0"
+            title="Sync with Cloudflare R2 bucket"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-amber-400' : ''}`} />
+            <span className="hidden sm:inline">Refresh Bucket</span>
+          </button>
+        </div>
 
         {/* Card Grid */}
         {images.length === 0 ? (
           <div className="text-center py-16 border border-dashed border-slate-800/80 rounded-2xl bg-slate-900/10">
             <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-800/60 border border-slate-700/40 flex items-center justify-center text-slate-400">
-              <Images className="w-7 h-7 text-cyan-400/70" />
+              <Images className="w-7 h-7 text-amber-400/80" />
             </div>
             <h3 className="font-semibold text-base text-white mb-1">
-              No images uploaded yet
+              No images in your Cloudflare R2 bucket
             </h3>
             <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              Drag & drop images above or click to browse. Each image gets an instant public HTTPS URL card!
+              Drag & drop images above or click to browse. Each image uploads directly to your Cloudflare bucket with 1-click URL copy and ZERO ads!
             </p>
           </div>
         ) : filteredImages.length === 0 ? (
@@ -277,7 +332,7 @@ export default function App() {
       </main>
 
       <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
-        FlareDrop • Real Public Image CDN & Cloudflare Vault
+        FlareDrop • Direct Cloudflare R2 Image Vault • myfirstbucket (100% Ad-Free)
       </footer>
 
       <SettingsModal

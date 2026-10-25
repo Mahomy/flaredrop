@@ -1,4 +1,4 @@
-import { CloudflareConfig } from '../types';
+import { CloudflareConfig, UploadedImage } from '../types';
 
 export async function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -24,81 +24,82 @@ export async function getImageDimensions(dataUrl: string): Promise<{ width: numb
 
 export interface UploadResult {
   url: string;
-  id?: string;
-  provider: 'cloudflare' | 'cdn';
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  provider: 'cloudflare';
 }
 
 /**
- * Uploads an image to 100% Ad-Free Direct CDN.
- * Returns direct raw image link (https://i.imgur.com/xxx.png or Cloudflare).
+ * Uploads an image straight to Cloudflare R2 bucket.
+ * 100% Ad-Free, direct public link (https://pub-xxx.r2.dev/filename).
  */
-export async function uploadImage(file: File, config: CloudflareConfig): Promise<UploadResult> {
+export async function uploadImage(file: File, _config?: CloudflareConfig): Promise<UploadResult> {
   const formData = new FormData();
   formData.append('file', file);
 
-  const headers: Record<string, string> = {};
-  if (config.enabled && config.accountId && config.apiToken) {
-    headers['X-CF-Account-Id'] = config.accountId.trim();
-    headers['X-CF-Api-Token'] = config.apiToken.trim();
-    if (config.accountHash) {
-      headers['X-CF-Account-Hash'] = config.accountHash.trim();
-    }
+  const response = await fetch('/api/upload', {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => ({}));
+    throw new Error(errorJson.error || `Upload failed (Status ${response.status})`);
   }
 
-  // 1. Try serverless Cloudflare Pages function (/api/upload)
-  try {
-    const response = await fetch('/api/upload', {
-      method: 'POST',
-      headers,
-      body: formData
-    });
-
-    if (response.ok) {
-      const data: any = await response.json();
-      if (data.success && data.url) {
-        return {
-          url: data.url,
-          id: data.id,
-          provider: data.provider || 'cdn'
-        };
-      }
-    }
-  } catch (err) {
-    console.warn('Pages function /api/upload unavailable, trying direct Imgur CDN...');
+  const data: any = await response.json();
+  if (!data.success || !data.url) {
+    throw new Error(data.error || 'Upload failed: no URL returned');
   }
 
-  // 2. Direct browser upload to Imgur (100% ad-free, direct i.imgur.com raw image URL)
-  try {
-    const imgurForm = new FormData();
-    imgurForm.append('image', file);
-
-    const imgurRes = await fetch('https://api.imgur.com/3/image', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Client-ID 546c25a59c58ad7'
-      },
-      body: imgurForm
-    });
-
-    if (imgurRes.ok) {
-      const imgurJson: any = await imgurRes.json();
-      if (imgurJson.success && imgurJson.data?.link) {
-        return {
-          url: imgurJson.data.link,
-          id: imgurJson.data.id,
-          provider: 'cdn'
-        };
-      }
-    }
-  } catch (err) {
-    console.error('Direct Imgur upload failed:', err);
-  }
-
-  throw new Error('Could not upload image. Please check your internet connection.');
+  return {
+    url: data.url,
+    id: data.id,
+    name: data.name || file.name,
+    size: data.size || file.size,
+    type: data.type || file.type,
+    provider: 'cloudflare'
+  };
 }
 
 /**
- * Downloads an image directly to the user's computer with zero ads or third-party pages.
+ * Fetches all images from Cloudflare R2 bucket.
+ */
+export async function fetchRemoteImages(): Promise<UploadedImage[]> {
+  try {
+    const res = await fetch('/api/files');
+    if (res.ok) {
+      const data: any = await res.json();
+      if (data.success && Array.isArray(data.files)) {
+        return data.files;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not fetch R2 images:', err);
+  }
+  return [];
+}
+
+/**
+ * Deletes an image from Cloudflare R2 bucket.
+ */
+export async function deleteRemoteImage(id: string): Promise<boolean> {
+  try {
+    const cleanId = id.startsWith('r2_') ? id.slice(3) : id;
+    const res = await fetch(`/api/delete/${encodeURIComponent(cleanId)}`, {
+      method: 'DELETE'
+    });
+    return res.ok;
+  } catch (err) {
+    console.error('Failed to delete image:', err);
+    return false;
+  }
+}
+
+/**
+ * Downloads an image directly with ZERO ads and zero third-party pages.
  */
 export async function downloadDirectImage(url: string, filename: string): Promise<void> {
   try {
@@ -113,7 +114,13 @@ export async function downloadDirectImage(url: string, filename: string): Promis
     document.body.removeChild(link);
     window.URL.revokeObjectURL(blobUrl);
   } catch (err) {
-    // If CORS prevents direct blob fetch, open image directly in a clean tab
-    window.open(url, '_blank');
+    // Direct browser anchor fallback
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename || 'downloaded-image.png';
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 }

@@ -78,7 +78,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
               onClick={() => onCopyUrl(image.url)}
-              className="px-3 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-xs transition flex items-center gap-1.5"
+              className="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition flex items-center gap-1.5"
             >
               <Copy className="w-3.5 h-3.5" /> Copy Link
             </button>
@@ -89,7 +89,7 @@ export const LightboxModal: React.FC<LightboxModalProps> = ({
                   ? 'bg-emerald-500 text-slate-950'
                   : 'bg-slate-800 hover:bg-slate-700 text-white'
               }`}
-              title="Download direct image"
+              title="Download direct image (Zero Ads)"
             >
               {downloading ? <Check className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
               <span>{downloading ? 'Downloaded!' : 'Download'}</span>

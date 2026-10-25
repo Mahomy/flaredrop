@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Cloud, Check, Trash2, ExternalLink } from 'lucide-react';
+import { X, Cloud, Check, Trash2, ExternalLink, HardDrive, CheckCircle } from 'lucide-react';
 import { CloudflareConfig } from '../types';
 
 interface SettingsModalProps {
@@ -17,10 +17,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaveConfig,
   onClearAllImages
 }) => {
-  const [accountId, setAccountId] = useState(config.accountId || '');
-  const [apiToken, setApiToken] = useState(config.apiToken || '');
-  const [accountHash, setAccountHash] = useState(config.accountHash || '');
-  const [enabled, setEnabled] = useState(config.enabled || false);
+  const [accountId, setAccountId] = useState(config.accountId || 'dc9867f8a1cf9c3548137121a3c613c2');
   const [saved, setSaved] = useState(false);
 
   if (!isOpen) return null;
@@ -29,9 +26,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     e.preventDefault();
     onSaveConfig({
       accountId: accountId.trim(),
-      apiToken: apiToken.trim(),
-      accountHash: accountHash.trim(),
-      enabled: enabled && Boolean(accountId.trim() && apiToken.trim())
+      apiToken: '',
+      accountHash: '',
+      enabled: true
     });
     setSaved(true);
     setTimeout(() => {
@@ -51,8 +48,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Cloud className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-white text-base">Storage & API Settings</h3>
-              <p className="text-xs text-slate-400">Configure Cloudflare Images or Local Vault</p>
+              <h3 className="font-bold text-white text-base">Cloudflare R2 Storage Status</h3>
+              <p className="text-xs text-slate-400">Direct Global Object Storage • 100% Ad-Free</p>
             </div>
           </div>
           <button
@@ -66,74 +63,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
 
-          {/* Toggle Cloudflare Mode */}
-          <div className="bg-slate-900/70 border border-slate-800/80 rounded-xl p-4 flex items-center justify-between">
-            <div>
-              <span className="font-semibold text-sm text-white block">Cloudflare Direct Upload</span>
-              <span className="text-xs text-slate-400">Upload images to Cloudflare CDN instead of browser vault</span>
+          {/* Connected R2 Bucket Status */}
+          <div className="bg-slate-900/70 border border-slate-800/80 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-400" />
+                <span className="font-semibold text-sm text-white">Active R2 Bucket</span>
+              </div>
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
+                Connected
+              </span>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={enabled}
-                onChange={(e) => setEnabled(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
-            </label>
-          </div>
-
-          {/* Cloudflare Account ID */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Cloudflare Account ID
-            </label>
-            <input
-              type="text"
-              value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
-              placeholder="e.g. dc9867f8a1cf9c3548137121a3c613c2"
-              className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 font-mono"
-            />
-          </div>
-
-          {/* Cloudflare API Token */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Cloudflare API Token
-            </label>
-            <input
-              type="password"
-              value={apiToken}
-              onChange={(e) => setApiToken(e.target.value)}
-              placeholder="Cloudflare API Token with Images Edit permission"
-              className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 font-mono"
-            />
-            <div className="flex items-center justify-between mt-1.5">
-              <span className="text-[11px] text-slate-500">Stored safely only in your browser localStorage</span>
-              <a
-                href="https://dash.cloudflare.com/profile/api-tokens"
-                target="_blank"
-                rel="noreferrer"
-                className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1"
-              >
-                Get API Token <ExternalLink className="w-2.5 h-2.5" />
-              </a>
+            
+            <div className="bg-slate-950/60 rounded-lg p-3 border border-slate-800 text-xs font-mono space-y-1.5 text-slate-300">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Bucket:</span>
+                <span className="text-amber-300 font-bold">myfirstbucket</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Public CDN:</span>
+                <span className="text-cyan-300">pub-e8bb4cc169594fc9a7cd29b4abf502cc.r2.dev</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Account ID:</span>
+                <span className="text-slate-300">{accountId}</span>
+              </div>
             </div>
           </div>
 
-          {/* Account Hash */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Images Delivery Account Hash <span className="text-slate-500 font-normal">(Optional)</span>
-            </label>
-            <input
-              type="text"
-              value={accountHash}
-              onChange={(e) => setAccountHash(e.target.value)}
-              placeholder="Custom imagedelivery.net hash"
-              className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 font-mono"
-            />
+          {/* Info Card */}
+          <div className="bg-amber-950/20 border border-amber-800/40 rounded-xl p-3.5 text-xs text-amber-200/90 leading-relaxed">
+            All images are uploaded directly to your Cloudflare R2 bucket and served with clean, ad-free URLs accessible worldwide from any device or mobile browser.
           </div>
 
           {/* Clear Storage */}
@@ -141,36 +101,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <button
               type="button"
               onClick={() => {
-                if (confirm('Delete all saved images from local storage?')) {
+                if (confirm('Clear local card cache? (Your files in Cloudflare R2 will remain safe).')) {
                   onClearAllImages();
                   onClose();
                 }
               }}
-              className="inline-flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 hover:underline"
+              className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 hover:underline"
             >
-              <Trash2 className="w-3.5 h-3.5" /> Clear All Saved Cards
+              <Trash2 className="w-3.5 h-3.5" /> Clear Local View Cache
             </button>
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center justify-end gap-3 pt-3">
+          <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
               className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white bg-slate-900 border border-slate-800 transition"
             >
-              Cancel
+              Close
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition flex items-center gap-1.5 shadow-md shadow-cyan-500/20"
+              className="px-5 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 transition flex items-center gap-1.5 shadow-md shadow-amber-500/20 font-bold"
             >
               {saved ? (
                 <>
-                  <Check className="w-3.5 h-3.5" /> Saved!
+                  <Check className="w-3.5 h-3.5" /> Done!
                 </>
               ) : (
-                'Save Settings'
+                'OK'
               )}
             </button>
           </div>
